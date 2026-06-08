@@ -42,7 +42,7 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   if (!message.guild) return;
   const member = message.member;
   if (!member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
-    await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ You need **Manage Server** permission to use this command.")] });
+    await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ You need Manage Server permission to use this command.")] });
     return;
   }
 
@@ -51,33 +51,32 @@ export async function handleNoPrefix(message: Message): Promise<void> {
 
   if (sub === "remove") {
     await deleteNoPrefixRoleDb(message.guild.id);
-    await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription("✅ No-prefix role has been **removed**.")] });
+    await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription("✅ No-prefix role has been removed.")] });
     return;
   }
 
   if (sub === "set") {
     const role = message.mentions.roles.first();
     if (!role) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Usage: `!noprefix set @role`")] });
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Usage: !noprefix set @role")] });
       return;
     }
     try {
       await setNoPrefixRoleDb(message.guild.id, role.id);
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
     } catch (err) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription(`❌ Failed to save: ${err instanceof Error ? err.message : String(err)}`)] });
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Failed to save data.")] });
     }
     return;
   }
 
-  // No subcommand - show current status
   const current = noPrefixRoles.get(message.guild.id);
   await message.reply({
     embeds: [
       new EmbedBuilder().setColor(0x5865F2).setTitle("✨ No Prefix")
         .setDescription(current 
-          ? `🔹 **Current no-prefix role:** <@&${current}>\n\nUsage:\n\`!noprefix set @role\` - set\n\`!noprefix remove\` - remove`
-          : "❌ **No no-prefix role set.**\n\nUsage:\n\`!noprefix set @role\` - set\n\`!noprefix remove\` - remove"
+          ? `Current role: <@&${current}>`
+          : "No role set currently."
         )
     ]
   });
