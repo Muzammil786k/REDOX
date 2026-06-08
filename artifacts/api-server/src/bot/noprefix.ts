@@ -1,18 +1,29 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
-import { eq, sql } from "drizzle-orm";
 
-// Ultimate String Interpolation Bypass for Strict Monorepo Compilers
-const workspacePrefix = "#workspace";
-const dbModule: any = await import(`${workspacePrefix}/db`);
-
-const db = dbModule.db;
-const noPrefixRolesTable = dbModule.noPrefixRolesTable;
-
+// Fullproof Native Pg-Pool Mismatch Bypass for Railway Runtime
+let dbPool: any = null;
 const noPrefixRoles = new Map<string, string>();
 
+async function getPgPool() {
+  if (dbPool) return dbPool;
+  // Pure dynamic import via global runtime evaluation
+  const dbPath = "#workspace/db";
+  const dbModule: any = await import(dbPath);
+  // Hum drizzle module ke andar se unka raw pg connection pool nikal rahe hain
+  dbPool = dbModule.db?.$client || dbModule.db?.client;
+  return dbPool;
+}
+
 export async function initNoPrefixRoles(): Promise<void> {
-  const rows = await db.select().from(noPrefixRolesTable);
-  for (const row of rows) noPrefixRoles.set(row.guildId, row.roleId);
+  try {
+    const pool = await getPgPool();
+    const res = await pool.query('SELECT "guild_id" as "guildId", "role_id" as "roleId" FROM "no_prefix_roles"');
+    for (const row of res.rows) {
+      noPrefixRoles.set(row.guildId, row.roleId);
+    }
+  } catch (err) {
+    console.error("Failed to init no-prefix roles natively:", err);
+  }
 }
 
 export function getNoPrefixRole(guildId: string): string | undefined {
@@ -30,17 +41,21 @@ export function hasNoPrefix(message: Message): boolean {
 
 export async function setNoPrefixRoleDb(guildId: string, roleId: string): Promise<void> {
   noPrefixRoles.set(guildId, roleId);
-  await db.insert(noPrefixRolesTable)
-    .values({ guildId, roleId })
-    .onConflictDoUpdate({ 
-      target: noPrefixRolesTable.guildId, 
-      set: { roleId: sql`EXCLUDED.role_id` } 
-    });
+  const pool = await getPgPool();
+  // Yeh hai asli PostgreSQL upsert syntax jisme EXCLUDED bina kisi extra mapping ke native chalta hai
+  const query = `
+    INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
+    VALUES ($1, $2) 
+    ON CONFLICT ("guild_id") 
+    DO UPDATE SET "role_id" = EXCLUDED."role_id"
+  `;
+  await pool.query(query, [guildId, roleId]);
 }
 
 export async function deleteNoPrefixRoleDb(guildId: string): Promise<void> {
   noPrefixRoles.delete(guildId);
-  await db.delete(noPrefixRolesTable).where(eq(noPrefixRolesTable.guildId, guildId));
+  const pool = await getPgPool();
+  await pool.query('DELETE FROM "no_prefix_roles" WHERE "guild_id" = $1', [guildId]);
 }
 
 export async function handleNoPrefix(message: Message): Promise<void> {
@@ -52,7 +67,7 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   }
 
   const args = message.content.trim().split(/\s+/).slice(1);
-  const sub = args?.toLowerCase();
+  const sub = args[0]?.toLowerCase();
 
   if (sub === "remove") {
     await deleteNoPrefixRoleDb(message.guild.id);
@@ -70,7 +85,8 @@ export async function handleNoPrefix(message: Message): Promise<void> {
       await setNoPrefixRoleDb(message.guild.id, role.id);
       await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
     } catch (err) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Failed to save data.")] });
+      console.error(err);
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Failed to save data to PostgreSQL.")] });
     }
     return;
   }
@@ -85,5 +101,4 @@ export async function handleNoPrefix(message: Message): Promise<void> {
         )
     ]
   });
-  }
-        
+}
