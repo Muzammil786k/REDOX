@@ -80,7 +80,6 @@ async function handleSetPrefix(message: Message): Promise<void> {
   await setPrefix(message.guild.id, newPrefix);
   await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ Server prefix changed to \`${newPrefix}\`\nAll commands now use \`${newPrefix}help\`, \`${newPrefix}ban\`, etc.`)] });
 }
-
 function m(lower: string, cmd: string): boolean {
   return (
     lower === `!${cmd}` ||
