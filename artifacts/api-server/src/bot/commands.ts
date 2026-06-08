@@ -273,12 +273,7 @@ export async function handleMessage(client: Client, message: Message): Promise<v
     await handleTicket(client, message);
 
   // ── Leaderboard ────────────────────────────────────────────────────────────
-  } else if (lower === "!lb" || lower.startsWith("!lb ") || lower === "!leaderboard" || lower.startsWith("!leaderboard ")) {
-    await handleLeaderboard(message);
-  } else if (m(lower, "lbreset")) {
-    await handleLbReset(message);
-  } else if (m(lower, "setlb")) {
-    await handleSetLb(client, message);
+  
 
   // ── Rank ───────────────────────────────────────────────────────────────────
   } else if (m(lower, "rank")) {
