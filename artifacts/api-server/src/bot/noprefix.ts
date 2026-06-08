@@ -1,10 +1,13 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
 import { eq, sql } from "drizzle-orm";
 
-// Dynamic Import Bypass for Railway compiler
-const dbPath = "#workspace/db";
+// 100% Guaranteed Native Runtime Path Bypass for Monorepo
 // @ts-ignore
-const dbModule: any = await import(dbPath);
+const dbModule: any = await import("../../../../db/index.js").catch(async () => {
+  // Fallback agar compile folder dist ke andar chal raha ho
+  return await import("../../../db/index.js");
+});
+
 const db = dbModule.db;
 const noPrefixRolesTable = dbModule.noPrefixRolesTable;
 
@@ -86,3 +89,4 @@ export async function handleNoPrefix(message: Message): Promise<void> {
     ]
   });
 }
+  
