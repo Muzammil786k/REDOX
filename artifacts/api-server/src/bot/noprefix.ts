@@ -1,19 +1,18 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
-import pkg from "pg";
-const { Pool } = pkg;
+import { sql } from "drizzle-orm";
 
-// Railway Database URL Connectivity
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// Sahi tareeqa jo monorepo ka strict compiler bina crash kiye accept karega
+import * as dbModule from "../../db/index.js";
+const db = (dbModule as any).db;
 
 const noPrefixRoles = new Map<string, string>();
 
 export async function initNoPrefixRoles(): Promise<void> {
   try {
-    const res = await pool.query('SELECT "guild_id" as "guildId", "role_id" as "roleId" FROM "no_prefix_roles"');
-    for (const row of res.rows) {
-      noPrefixRoles.set(row.guildId, row.roleId);
+    const res = await db.execute(sql`SELECT "guild_id" as "guildId", "role_id" as "roleId" FROM "no_prefix_roles"`);
+    const rows = res.rows || res;
+    for (const row of rows) {
+      noPrefixRoles.set(row.guildId || row.guild_id, row.roleId || row.role_id);
     }
   } catch (err) {
     console.error("Failed to init no-prefix roles natively:", err);
@@ -35,18 +34,17 @@ export function hasNoPrefix(message: Message): boolean {
 
 export async function setNoPrefixRoleDb(guildId: string, roleId: string): Promise<void> {
   noPrefixRoles.set(guildId, roleId);
-  const query = `
+  await db.execute(sql`
     INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
-    VALUES ($1, $2) 
+    VALUES (${guildId}, ${roleId}) 
     ON CONFLICT ("guild_id") 
     DO UPDATE SET "role_id" = EXCLUDED."role_id"
-  `;
-  await pool.query(query, [guildId, roleId]);
+  `);
 }
 
 export async function deleteNoPrefixRoleDb(guildId: string): Promise<void> {
   noPrefixRoles.delete(guildId);
-  await pool.query('DELETE FROM "no_prefix_roles" WHERE "guild_id" = $1', [guildId]);
+  await db.execute(sql`DELETE FROM "no_prefix_roles" WHERE "guild_id" = ${guildId}`);
 }
 
 export async function handleNoPrefix(message: Message): Promise<void> {
@@ -58,7 +56,19 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   }
 
   const args = message.content.trim().split(/\s+/).slice(1);
-  const sub = args?.toLowerCase();
+  const sub = args[0]?.toLowerCase();
+
+  // PURANA FORMAT BACKWARD COMPATIBILITY: Agar user direct role mention kare bina 'set' likhe
+  if (message.mentions.roles.first() && sub !== "set" && sub !== "remove") {
+    const role = message.mentions.roles.first()!;
+    try {
+      await setNoPrefixRoleDb(message.guild.id, role.id);
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
+    } catch (err) {
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Failed to save data.")] });
+    }
+    return;
+  }
 
   if (sub === "remove") {
     await deleteNoPrefixRoleDb(message.guild.id);
@@ -76,8 +86,7 @@ export async function handleNoPrefix(message: Message): Promise<void> {
       await setNoPrefixRoleDb(message.guild.id, role.id);
       await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
     } catch (err) {
-      console.error(err);
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Failed to save data to PostgreSQL.")] });
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Failed to save data.")] });
     }
     return;
   }
