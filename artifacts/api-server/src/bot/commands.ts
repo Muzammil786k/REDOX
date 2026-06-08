@@ -34,7 +34,7 @@ import { handleVanityRole } from "./vanityrole";
 import { handleSnipe } from "./snipe";
 import { handleTrigger, processTriggers } from "./autotrigger";
 import { handleTicket } from "./ticket";
-import { handleLeaderboard, handleLbReset, handleSetLb,from "./leaderboard";
+
 import { handleRank } from "./rank";
 import { handleSend, handleSay, handleEmbed, handleDm } from "./send";
 import {
