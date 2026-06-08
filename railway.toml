@@ -1,4 +1,2 @@
 [deploy]
-startCommand = "node --enable-source-maps artifacts/api-server/dist/index.mjs"
-healthcheckPath = "/api/healthz"
-healthcheckTimeout = 300
+startCmmand = "node --enable-source-maps artifacts/api-server/dist/index.mjs"
