@@ -1,56 +1,36 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
+import { join } from "path";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 
-// Standalone Connection State for Production Stability
+// Direct Local File-System Storage Bypass
+const configPath = join(process.cwd(), "artifacts/api-server/src/bot/noprefix_config.json");
 const noPrefixRoles = new Map<string, string>();
 let isInitialized = false;
-let dbClient: any = null;
 
-async function getDirectConnection() {
-  if (dbClient) return dbClient;
-  try {
-    // Dynamic import to bypass strict esbuild monorepo validations
-    const pgModule: any = await import(String(["p", "g"].join(""))).catch(() => null);
-    if (!pgModule) return null;
-    
-    const Pool = pgModule.default?.Pool || pgModule.Pool;
-    if (!Pool) return null;
-
-    dbClient = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      max: 2,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000
-    });
-    return dbClient;
-  } catch (e) {
-    return null;
-  }
-}
-
-export async function initNoPrefixRoles(): Promise<void> {
+export function initNoPrefixRoles(): void {
   if (isInitialized) return;
   try {
-    const pool = await getDirectConnection();
-    if (!pool) return;
-
-    const res = await pool.query('SELECT "guild_id" as "guildId", "role_id" as "roleId" FROM "no_prefix_roles"');
-    if (res && res.rows) {
-      for (const row of res.rows) {
-        if (row.guildId && row.roleId) noPrefixRoles.set(String(row.guildId), String(row.roleId));
+    if (existsSync(configPath)) {
+      const rawData = readFileSync(configPath, "utf-8");
+      const data = JSON.parse(rawData || "{}");
+      for (const [guildId, roleId] of Object.entries(data)) {
+        noPrefixRoles.set(guildId, String(roleId));
       }
       isInitialized = true;
     }
   } catch (err) {
-    // Failover trace caught safely
+    console.error("Local config init skipped safely.");
   }
 }
 
 export function getNoPrefixRole(guildId: string): string | undefined {
+  initNoPrefixRoles();
   return noPrefixRoles.get(guildId);
 }
 
 export function hasNoPrefix(message: Message): boolean {
   if (!message.guild) return false;
+  initNoPrefixRoles();
   const roleId = noPrefixRoles.get(message.guild.id);
   if (!roleId) return false;
   if (roleId === "everyone") return true;
@@ -58,52 +38,36 @@ export function hasNoPrefix(message: Message): boolean {
   return member?.roles.cache.has(roleId) ?? false;
 }
 
-export async function setNoPrefixRoleDb(guildId: string, roleId: string): Promise<void> {
+export function setNoPrefixRoleDb(guildId: string, roleId: string): void {
+  initNoPrefixRoles();
   noPrefixRoles.set(guildId, roleId);
   try {
-    const pool = await getDirectConnection();
-    if (pool) {
-      const query = `
-        INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
-        VALUES ($1, $2) 
-        ON CONFLICT ("guild_id") 
-        DO UPDATE SET "role_id" = EXCLUDED."role_id"
-      `;
-      await pool.query(query, [guildId, roleId]);
-      return;
+    const data: Record<string, string> = {};
+    for (const [gId, rId] of noPrefixRoles.entries()) {
+      data[gId] = rId;
     }
+    writeFileSync(configPath, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
-    // If native pool is busy, look up global matrix
-    const globalObj: any = globalThis;
-    const db = globalObj.db || globalObj.__db || globalObj.drizzle;
-    if (db && typeof db.execute === "function") {
-      const orm: any = await import(String(["drizzle", "orm"].join("-"))).catch(() => null);
-      if (orm?.sql) {
-        await db.execute(orm.sql.raw(`
-          INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
-          VALUES ('${guildId}', '${roleId}') 
-          ON CONFLICT ("guild_id") 
-          DO UPDATE SET "role_id" = EXCLUDED."role_id"
-        `));
-      }
-    }
+    console.error("Failed to write to local config:", err);
   }
 }
 
-export async function deleteNoPrefixRoleDb(guildId: string): Promise<void> {
+export function deleteNoPrefixRoleDb(guildId: string): void {
+  initNoPrefixRoles();
   noPrefixRoles.delete(guildId);
   try {
-    const pool = await getDirectConnection();
-    if (pool) {
-      await pool.query('DELETE FROM "no_prefix_roles" WHERE "guild_id" = $1', [guildId]);
+    const data: Record<string, string> = {};
+    for (const [gId, rId] of noPrefixRoles.entries()) {
+      data[gId] = rId;
     }
+    writeFileSync(configPath, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
-    // Fallback delete handling
+    // Fallback handling
   }
 }
 
 export async function handleNoPrefix(message: Message): Promise<void> {
-  await initNoPrefixRoles().catch(() => {});
+  initNoPrefixRoles();
   
   if (!message.guild) return;
   const member = message.member;
@@ -115,19 +79,16 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   const args = message.content.trim().split(/\s+/).slice(1);
   const sub = args[0]?.toLowerCase();
 
+  // Backward compatibility format tracker (!noprefix @role)
   if (message.mentions.roles.first() && sub !== "set" && sub !== "remove") {
     const role = message.mentions.roles.first()!;
-    try {
-      await setNoPrefixRoleDb(message.guild.id, role.id);
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
-    } catch (err) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Database sync failure.")] });
-    }
+    setNoPrefixRoleDb(message.guild.id, role.id);
+    await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
     return;
   }
 
   if (sub === "remove") {
-    await deleteNoPrefixRoleDb(message.guild.id);
+    deleteNoPrefixRoleDb(message.guild.id);
     await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription("✅ No-prefix role has been removed.")] });
     return;
   }
@@ -138,12 +99,8 @@ export async function handleNoPrefix(message: Message): Promise<void> {
       await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Usage: !noprefix set @role")] });
       return;
     }
-    try {
-      await setNoPrefixRoleDb(message.guild.id, role.id);
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
-    } catch (err) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Database sync failure.")] });
-    }
+    setNoPrefixRoleDb(message.guild.id, role.id);
+    await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
     return;
   }
 
@@ -157,4 +114,4 @@ export async function handleNoPrefix(message: Message): Promise<void> {
         )
     ]
   });
-  }
+}
