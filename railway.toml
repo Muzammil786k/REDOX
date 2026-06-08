@@ -1,11 +1,4 @@
-[build]
-builder = "nixpacks"
-buildCommand = "pnpm run typecheck:libs && pnpm --filter @workspace/api-server run build"
-
 [deploy]
 startCommand = "node --enable-source-maps artifacts/api-server/dist/index.mjs"
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
-
-[environments.production.deploy]
 healthcheckPath = "/api/healthz"
+healthcheckTimeout = 300
