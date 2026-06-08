@@ -106,15 +106,6 @@ export async function handleUnmute(client: Client, message: Message): Promise<vo
     return;
   }
 
-  const c = await logCase(client, {
-    type: "UNMUTE",
-    guildId: message.guild.id,
-    targetId: target.id,
-    targetTag: target.user.tag,
-    moderatorId: message.author.id,
-    reason: "Manual unmute",
-  });
-
   await message.reply({
   embeds: [
     new EmbedBuilder()
