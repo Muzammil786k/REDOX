@@ -1,24 +1,20 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
-import { sql } from "drizzle-orm";
+import { pgTable, bigint, varchar } from "drizzle-orm/pg-core";
+import pkg from "pg";
+const { Pool } = pkg;
 
-let dbInstance: any = null;
+// Standard Connection Pool using Railway's default Environment Variable
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
 const noPrefixRoles = new Map<string, string>();
-
-async function getDb() {
-  if (dbInstance) return dbInstance;
-  const dbPath = "#workspace/db";
-  const dbModule: any = await import(dbPath);
-  dbInstance = dbModule.db;
-  return dbInstance;
-}
 
 export async function initNoPrefixRoles(): Promise<void> {
   try {
-    const db = await getDb();
-    const res = await db.execute(sql`SELECT "guild_id" as "guildId", "role_id" as "roleId" FROM "no_prefix_roles"`);
-    const rows = res.rows || res;
-    for (const row of rows) {
-      noPrefixRoles.set(row.guildId || row.guild_id, row.roleId || row.role_id);
+    const res = await pool.query('SELECT "guild_id" as "guildId", "role_id" as "roleId" FROM "no_prefix_roles"');
+    for (const row of res.rows) {
+      noPrefixRoles.set(row.guildId, row.roleId);
     }
   } catch (err) {
     console.error("Failed to init no-prefix roles natively:", err);
@@ -40,19 +36,18 @@ export function hasNoPrefix(message: Message): boolean {
 
 export async function setNoPrefixRoleDb(guildId: string, roleId: string): Promise<void> {
   noPrefixRoles.set(guildId, roleId);
-  const db = await getDb();
-  await db.execute(sql`
+  const query = `
     INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
-    VALUES (${guildId}, ${roleId}) 
+    VALUES ($1, $2) 
     ON CONFLICT ("guild_id") 
     DO UPDATE SET "role_id" = EXCLUDED."role_id"
-  `);
+  `;
+  await pool.query(query, [guildId, roleId]);
 }
 
 export async function deleteNoPrefixRoleDb(guildId: string): Promise<void> {
   noPrefixRoles.delete(guildId);
-  const db = await getDb();
-  await db.execute(sql`DELETE FROM "no_prefix_roles" WHERE "guild_id" = ${guildId}`);
+  await pool.query('DELETE FROM "no_prefix_roles" WHERE "guild_id" = $1', [guildId]);
 }
 
 export async function handleNoPrefix(message: Message): Promise<void> {
@@ -64,7 +59,7 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   }
 
   const args = message.content.trim().split(/\s+/).slice(1);
-  const sub = args[0]?.toLowerCase();
+  const sub = args?.toLowerCase();
 
   if (sub === "remove") {
     await deleteNoPrefixRoleDb(message.guild.id);
