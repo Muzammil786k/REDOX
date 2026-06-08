@@ -51,7 +51,7 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   await message.reply({
     embeds: [
       new EmbedBuilder()
-        .setColor(0x5865F2)
+        .setColor(0xFF0000)
         .setTitle("✨ Native No Prefix System")
         .setDescription(
           "✅ No Prefix System Enabled!\n\nMembers with the `noprefix` role can use commands without a prefix."
