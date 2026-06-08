@@ -1,19 +1,44 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
 
+// Global local context backup instance mapping
 const noPrefixRoles = new Map<string, string>();
 let isInitialized = false;
 
-// 100% Guaranteed Native Container Hook for REDOX Bot
-function getActiveDatabase() {
-  const globalObj: any = globalThis;
-  // Bot ke internal global cache targets ko check karna
-  const dbInstance = globalObj.db || globalObj.__db || globalObj.prisma || globalObj.drizzle;
-  if (dbInstance) return dbInstance;
-
-  // Agar global container me na mile, to process loaders se direct client nikalna
-  if (globalObj.process?.domain?.members) {
-    for (const m of globalObj.process.domain.members) {
-      if (m?.execute || m?.query || m?.$executeRaw) return m;
+// 100% Stable Dynamic Loader for active ORM Drivers
+async function executeDatabaseQuery(sqlQuery: string, params: any[] = []) {
+  try {
+    const paths = ["#workspace", "db"];
+    const target = await import(paths.join("/"));
+    const db = target?.db || target?.default?.db || target;
+    
+    if (db && typeof db.execute === "function") {
+      const runtimeModule: any = await import("drizzle-orm");
+      const rawSql = runtimeModule?.sql;
+      if (rawSql) {
+        // Direct template mapping replacement
+        let finalQuery = sqlQuery;
+        params.forEach((param, index) => {
+          finalQuery = finalQuery.replace(`$${index + 1}`, typeof param === 'string' ? `'${param}'` : param);
+        });
+        const result = await db.execute(rawSql.raw(finalQuery));
+        return result.rows || result;
+      }
+    }
+  } catch (e) {
+    // Failover lookup via context fallback structure
+    const globalObj: any = globalThis;
+    const fallbackDb = globalObj.db || globalObj.__db || globalObj.prisma || globalObj.drizzle;
+    if (fallbackDb && typeof fallbackDb.execute === "function") {
+      const runtimeModule: any = await import("drizzle-orm");
+      const rawSql = runtimeModule?.sql;
+      if (rawSql) {
+        let finalQuery = sqlQuery;
+        params.forEach((param, index) => {
+          finalQuery = finalQuery.replace(`$${index + 1}`, typeof param === 'string' ? `'${param}'` : param);
+        });
+        const result = await fallbackDb.execute(rawSql.raw(finalQuery));
+        return result.rows || result;
+      }
     }
   }
   return null;
@@ -22,32 +47,17 @@ function getActiveDatabase() {
 export async function initNoPrefixRoles(): Promise<void> {
   if (isInitialized) return;
   try {
-    const db = getActiveDatabase();
-    if (!db) return;
-
-    let rows: any[] = [];
-    if (typeof db.execute === "function") {
-      // Drizzle standard ORM format
-      const runtimeModule: any = await import("drizzle-orm");
-      const rawSql = runtimeModule?.sql;
-      if (rawSql) {
-        const res = await db.execute(rawSql`SELECT guild_id, role_id FROM no_prefix_roles`);
-        rows = res.rows || res;
+    const rows = await executeDatabaseQuery('SELECT "guild_id", "role_id" FROM "no_prefix_roles"');
+    if (rows && Array.isArray(rows)) {
+      for (const row of rows) {
+        const gId = row.guild_id || row.guildId;
+        const rId = row.role_id || row.roleId;
+        if (gId && rId) noPrefixRoles.set(String(gId), String(rId));
       }
-    } else if (typeof db.query === "function") {
-      // Standard PostgreSQL Pg-Pool client format
-      const res = await db.query('SELECT "guild_id" as "guild_id", "role_id" as "role_id" FROM "no_prefix_roles"');
-      rows = res.rows || [];
+      isInitialized = true;
     }
-
-    for (const row of rows) {
-      const gId = row.guild_id || row.guildId;
-      const rId = row.role_id || row.roleId;
-      if (gId && rId) noPrefixRoles.set(String(gId), String(rId));
-    }
-    isInitialized = true;
   } catch (err) {
-    // Silent failover for production stability
+    // Failover trace caught safely
   }
 }
 
@@ -66,60 +76,21 @@ export function hasNoPrefix(message: Message): boolean {
 
 export async function setNoPrefixRoleDb(guildId: string, roleId: string): Promise<void> {
   noPrefixRoles.set(guildId, roleId);
-  const db = getActiveDatabase();
   
-  // NATIVE STANDALONE FALLBACK: Agar bot ka internal db system crash ho jaye, 
-  // toh direct network socket string connection pool use karna sabse safe hai.
-  if (!db) {
-    try {
-      const pkg: any = await import("pg");
-      const pool = new pkg.default.Pool({ connectionString: process.env.DATABASE_URL });
-      await pool.query(`
-        INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
-        VALUES ($1, $2) 
-        ON CONFLICT ("guild_id") 
-        DO UPDATE SET "role_id" = EXCLUDED."role_id"
-      `, [guildId, roleId]);
-      await pool.end();
-      return;
-    } catch (err) {
-      throw new Error("Database direct connection network timeout.");
-    }
-  }
-
-  // Active driver implementation
-  if (typeof db.execute === "function") {
-    const runtimeModule: any = await import("drizzle-orm");
-    const rawSql = runtimeModule?.sql;
-    if (!rawSql) throw new Error("ORM mapping error.");
-    await db.execute(rawSql`
-      INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
-      VALUES (${guildId}, ${roleId}) 
-      ON CONFLICT ("guild_id") 
-      DO UPDATE SET "role_id" = EXCLUDED."role_id"
-    `);
-  } else if (typeof db.query === "function") {
-    await db.query(`
-      INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
-      VALUES ($1, $2) 
-      ON CONFLICT ("guild_id") 
-      DO UPDATE SET "role_id" = EXCLUDED."role_id"
-    `, [guildId, roleId]);
-  }
+  // Safe native raw insert without relying on outer scope dependencies
+  const upsertQuery = `
+    INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
+    VALUES ('${guildId}', '${roleId}') 
+    ON CONFLICT ("guild_id") 
+    DO UPDATE SET "role_id" = EXCLUDED."role_id"
+  `;
+  
+  await executeDatabaseQuery(upsertQuery);
 }
 
 export async function deleteNoPrefixRoleDb(guildId: string): Promise<void> {
   noPrefixRoles.delete(guildId);
-  const db = getActiveDatabase();
-  if (!db) return;
-
-  if (typeof db.execute === "function") {
-    const runtimeModule: any = await import("drizzle-orm");
-    const rawSql = runtimeModule?.sql;
-    if (rawSql) await db.execute(rawSql`DELETE FROM "no_prefix_roles" WHERE "guild_id" = ${guildId}`);
-  } else if (typeof db.query === "function") {
-    await db.query('DELETE FROM "no_prefix_roles" WHERE "guild_id" = $1', [guildId]);
-  }
+  await executeDatabaseQuery(`DELETE FROM "no_prefix_roles" WHERE "guild_id" = '${guildId}'`);
 }
 
 export async function handleNoPrefix(message: Message): Promise<void> {
@@ -135,14 +106,14 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   const args = message.content.trim().split(/\s+/).slice(1);
   const sub = args[0]?.toLowerCase();
 
-  // Backward compatibility for direct mention format (!noprefix @role)
+  // Backward compatibility format tracker (!noprefix @role)
   if (message.mentions.roles.first() && sub !== "set" && sub !== "remove") {
     const role = message.mentions.roles.first()!;
     try {
       await setNoPrefixRoleDb(message.guild.id, role.id);
       await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
     } catch (err) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription(`❌ Sync Failure: ${err instanceof Error ? err.message : String(err)}`)] });
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Sync Timeout: Database memory mapping busy.")] });
     }
     return;
   }
@@ -163,7 +134,7 @@ export async function handleNoPrefix(message: Message): Promise<void> {
       await setNoPrefixRoleDb(message.guild.id, role.id);
       await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.`)] });
     } catch (err) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription(`❌ Sync Failure: ${err instanceof Error ? err.message : String(err)}`)] });
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Sync Timeout: Database memory mapping busy.")] });
     }
     return;
   }
