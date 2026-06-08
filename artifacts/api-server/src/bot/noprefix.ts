@@ -1,7 +1,7 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
-import { db } from "@workspace/db";
-import { noPrefixRolesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db } from "#workspace/db";
+import { noPrefixRolesTable } from "#workspace/db";
+import { eq, sql } from "drizzle-orm";
 
 const noPrefixRoles = new Map<string, string>();
 
@@ -27,7 +27,10 @@ export async function setNoPrefixRoleDb(guildId: string, roleId: string): Promis
   noPrefixRoles.set(guildId, roleId);
   await db.insert(noPrefixRolesTable)
     .values({ guildId, roleId })
-    .onConflictDoUpdate({ target: noPrefixRolesTable.guildId, set: { roleId } });
+    .onConflictDoUpdate({ 
+      target: noPrefixRolesTable.guildId, 
+      set: { roleId: sql`EXCLUDED.role_id` } 
+    });
 }
 
 export async function deleteNoPrefixRoleDb(guildId: string): Promise<void> {
@@ -39,42 +42,43 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   if (!message.guild) return;
   const member = message.member;
   if (!member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
-    await message.reply({ embeds: [new EmbedBuilder().setColor(0xff0000).setDescription("❌ You need **Manage Server** permission to configure no-prefix.")] });
+    await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ You need **Manage Server** permission to use this command.")] });
     return;
   }
+
   const args = message.content.trim().split(/\s+/).slice(1);
   const sub = args[0]?.toLowerCase();
 
   if (sub === "remove") {
     await deleteNoPrefixRoleDb(message.guild.id);
-    await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription("✅ No-prefix role has been **removed**.")] });
+    await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription("✅ No-prefix role has been **removed**.")] });
     return;
   }
 
   if (sub === "set") {
     const role = message.mentions.roles.first();
     if (!role) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xff0000).setDescription("❌ Usage: `!noprefix set @role`")] });
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription("❌ Usage: `!noprefix set @role`")] });
       return;
     }
     try {
       await setNoPrefixRoleDb(message.guild.id, role.id);
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix role set to <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57F287).setDescription(`✅ No-prefix role set to <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
     } catch (err) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xff0000).setDescription(`❌ Failed to save: ${err instanceof Error ? err.message : String(err)}`)] });
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xFF0000).setDescription(`❌ Failed to save: ${err instanceof Error ? err.message : String(err)}`)] });
     }
     return;
   }
 
-  // No subcommand — show current status
+  // No subcommand - show current status
   const current = noPrefixRoles.get(message.guild.id);
   await message.reply({
     embeds: [
-      new EmbedBuilder().setColor(0x5865f2).setTitle("⚡ No Prefix")
-        .setDescription(current
-          ? `**Current no-prefix role:** <@&${current}>\n\nUsage:\n\`!noprefix set @role\` — set\n\`!noprefix remove\` — remove`
-          : `No no-prefix role set.\n\nUsage:\n\`!noprefix set @role\` — set\n\`!noprefix remove\` — remove`),
-    ],
+      new EmbedBuilder().setColor(0x5865F2).setTitle("✨ No Prefix")
+        .setDescription(current 
+          ? `🔹 **Current no-prefix role:** <@&${current}>\n\nUsage:\n\`!noprefix set @role\` - set\n\`!noprefix remove\` - remove`
+          : "❌ **No no-prefix role set.**\n\nUsage:\n\`!noprefix set @role\` - set\n\`!noprefix remove\` - remove"
+        )
+    ]
   });
 }
-
