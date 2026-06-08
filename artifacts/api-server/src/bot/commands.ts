@@ -82,7 +82,12 @@ async function handleSetPrefix(message: Message): Promise<void> {
 }
 
 function m(lower: string, cmd: string): boolean {
-  return lower === `!${cmd}` || lower.startsWith(`!${cmd} `);
+  return (
+    lower === `!${cmd}` ||
+    lower.startsWith(`!${cmd} `) ||
+    lower === cmd ||
+    lower.startsWith(`${cmd} `)
+  );
 }
 
 export async function handleMessage(client: Client, message: Message): Promise<void> {
