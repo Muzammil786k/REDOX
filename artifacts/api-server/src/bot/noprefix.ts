@@ -18,6 +18,7 @@ export function hasNoPrefix(message: Message): boolean {
   if (!message.guild) return false;
   const roleId = noPrefixRoles.get(message.guild.id);
   if (!roleId) return false;
+  if (roleId === "everyone") return true;
   const member = message.member;
   return member?.roles.cache.has(roleId) ?? false;
 }
@@ -52,31 +53,28 @@ export async function handleNoPrefix(message: Message): Promise<void> {
 
   if (sub === "set") {
     const role = message.mentions.roles.first();
-    if (!role) {
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0xff0000).setDescription("❌ Usage: `!noprefix set @role`")] });
-      return;
+    if (role) {
+      // !noprefix set @role — only that role gets noprefix
+      await setNoPrefixRoleDb(message.guild.id, role.id);
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix enabled for <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
+    } else {
+      // !noprefix set — enable for everyone
+      await setNoPrefixRoleDb(message.guild.id, "everyone");
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix enabled for **everyone** in this server.\nAnyone can now use commands **without** the \`!\` prefix.`)] });
     }
-    await setNoPrefixRoleDb(message.guild.id, role.id);
-    await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix role set to <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
     return;
   }
 
   // No subcommand — show current status
-  const role = message.mentions.roles.first();
-  if (role) {
-    // Still support old syntax: !noprefix @role
-    await setNoPrefixRoleDb(message.guild.id, role.id);
-    await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix role set to <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
-    return;
-  }
-
   const current = noPrefixRoles.get(message.guild.id);
   await message.reply({
     embeds: [
       new EmbedBuilder().setColor(0x5865f2).setTitle("⚡ No Prefix")
-        .setDescription(current
-          ? `**Current no-prefix role:** <@&${current}>\n\nUsage:\n\`!noprefix set @role\` — set\n\`!noprefix remove\` — remove`
-          : `No no-prefix role set.\n\nUsage:\n\`!noprefix set @role\` — set\n\`!noprefix remove\` — remove`),
+        .setDescription(current === "everyone"
+          ? `**Status:** Enabled for everyone ✅\n\nUsage:\n\`!noprefix set\` — enable for everyone\n\`!noprefix set @role\` — enable for a role only\n\`!noprefix remove\` — disable`
+          : current
+          ? `**Current no-prefix role:** <@&${current}>\n\nUsage:\n\`!noprefix set\` — enable for everyone\n\`!noprefix set @role\` — enable for a role only\n\`!noprefix remove\` — disable`
+          : `**Status:** Disabled ❌\n\nUsage:\n\`!noprefix set\` — enable for everyone\n\`!noprefix set @role\` — enable for a role only\n\`!noprefix remove\` — disable`),
     ],
   });
 }
