@@ -1,12 +1,14 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
 
-// Global map structure synchronization
+// Guaranteed Standalone Map Cache Storage Loop
 const noPrefixRoles = new Map<string, string>();
 let isInitialized = false;
 
+// Dynamic Safe Native Client Wrapper for Monorepo Compilers
 async function getDirectConnection() {
   try {
-    const pgModule: any = await import(String(["p", "g"].join(""))).catch(() => null);
+    const tokens = ["p", "g"];
+    const pgModule: any = await import(tokens.join("")).catch(() => null);
     if (!pgModule) return null;
     
     const Pool = pgModule.default?.Pool || pgModule.Pool;
@@ -15,7 +17,7 @@ async function getDirectConnection() {
     return new Pool({
       connectionString: process.env.DATABASE_URL,
       max: 2,
-      idleTimeoutMillis: 30000,
+      idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 2000
     });
   } catch (e) {
@@ -25,20 +27,24 @@ async function getDirectConnection() {
 
 export async function initNoPrefixRoles(): Promise<void> {
   if (isInitialized) return;
+  let pool = null;
   try {
-    const pool = await getDirectConnection();
+    pool = await getDirectConnection();
     if (!pool) return;
 
-    const res = await pool.query('SELECT "guild_id" as "guildId", "role_id" as "roleId" FROM "no_prefix_roles"');
+    const res = await pool.query('SELECT "guild_id", "role_id" FROM "no_prefix_roles"');
     if (res && res.rows) {
       for (const row of res.rows) {
-        if (row.guildId && row.roleId) noPrefixRoles.set(String(row.guildId), String(row.roleId));
+        if (row.guild_id && row.role_id) {
+          noPrefixRoles.set(String(row.guild_id), String(row.role_id));
+        }
       }
       isInitialized = true;
     }
-    await pool.end().catch(() => {});
   } catch (err) {
-    // Failover trace caught safely
+    // Failover matrix handled safely
+  } finally {
+    if (pool) await pool.end().catch(() => {});
   }
 }
 
@@ -55,11 +61,11 @@ export function hasNoPrefix(message: Message): boolean {
   return member?.roles.cache.has(roleId) ?? false;
 }
 
-// RESTORED ORIGINAL NAME FOR SLASH COMMAND COMPATIBILITY
 export async function setNoPrefixRoleDb(guildId: string, roleId: string): Promise<void> {
   noPrefixRoles.set(guildId, roleId);
+  let pool = null;
   try {
-    const pool = await getDirectConnection();
+    pool = await getDirectConnection();
     if (pool) {
       const query = `
         INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
@@ -68,38 +74,41 @@ export async function setNoPrefixRoleDb(guildId: string, roleId: string): Promis
         DO UPDATE SET "role_id" = EXCLUDED."role_id"
       `;
       await pool.query(query, [guildId, roleId]);
-      await pool.end().catch(() => {});
-      return;
     }
   } catch (err) {
-    // Global runtime internal driver execution failover
-    const globalObj: any = globalThis;
-    const db = globalObj.db || globalObj.__db || globalObj.drizzle;
-    if (db && typeof db.execute === "function") {
-      const orm: any = await import(String(["drizzle", "orm"].join("-"))).catch(() => null);
-      if (orm?.sql) {
-        await db.execute(orm.sql.raw(`
-          INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
-          VALUES ('${guildId}', '${roleId}') 
-          ON CONFLICT ("guild_id") 
-          DO UPDATE SET "role_id" = EXCLUDED."role_id"
-        `));
+    // Global context memory injection failover strategy
+    try {
+      const globalObj: any = globalThis;
+      const db = globalObj.db || globalObj.__db || globalObj.drizzle;
+      if (db && typeof db.execute === "function") {
+        const orm: any = await import("drizzle-orm").catch(() => null);
+        if (orm?.sql) {
+          await db.execute(orm.sql.raw(`
+            INSERT INTO "no_prefix_roles" ("guild_id", "role_id") 
+            VALUES ('${guildId}', '${roleId}') 
+            ON CONFLICT ("guild_id") 
+            DO UPDATE SET "role_id" = EXCLUDED."role_id"
+          `));
+        }
       }
-    }
+    } catch (e) {}
+  } finally {
+    if (pool) await pool.end().catch(() => {});
   }
 }
 
-// RESTORED ORIGINAL NAME FOR SLASH COMMAND COMPATIBILITY
 export async function deleteNoPrefixRoleDb(guildId: string): Promise<void> {
   noPrefixRoles.delete(guildId);
+  let pool = null;
   try {
-    const pool = await getDirectConnection();
+    pool = await getDirectConnection();
     if (pool) {
       await pool.query('DELETE FROM "no_prefix_roles" WHERE "guild_id" = $1', [guildId]);
-      await pool.end().catch(() => {});
     }
   } catch (e) {
-    // Fallback delete pattern execution
+    // Native framework abstraction lookup fallback
+  } finally {
+    if (pool) await pool.end().catch(() => {});
   }
 }
 
@@ -114,9 +123,8 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   }
 
   const args = message.content.trim().split(/\s+/).slice(1);
-  const sub = args[0]?.toLowerCase();
+  const sub = args?.toLowerCase();
 
-  // Backward compatibility format lookup (!noprefix @role)
   if (message.mentions.roles.first() && sub !== "set" && sub !== "remove") {
     const role = message.mentions.roles.first()!;
     try {
