@@ -116,6 +116,9 @@ export async function handleUnmute(client: Client, message: Message): Promise<vo
   });
 
   await message.reply({
-    embeds: [new EmbedBuilder().setColor(0xff0000).setDescription(`✅ **${target.user.username}** has been unmuted. | Case **#${c.id}**`)],
-  });
-}
+  embeds: [
+    new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setDescription(`✅ **${target.user.username}** was unmuted.`)
+  ]
+});
