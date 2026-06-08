@@ -1114,16 +1114,23 @@ export async function handleSlashCommand(client: Client, interaction: ChatInputC
       case "noprefix": {
         if (!guild) { await interaction.reply({ content: "❌ Server only.", ephemeral: true }); return; }
         const sub = interaction.options.getSubcommand();
-        if (sub === "set") {
-          const role = interaction.options.getRole("role", true);
-          await setNoPrefixRoleDb(guild.id, role.id);
-          await interaction.reply({ embeds: [new EmbedBuilder().setColor(C).setDescription(`✅ No-prefix role set to <@&${role.id}>.\nMembers with this role can use commands without \`!\`.`)], ephemeral: true });
-        } else if (sub === "remove") {
-          await deleteNoPrefixRoleDb(guild.id);
-          await interaction.reply({ embeds: [new EmbedBuilder().setColor(C).setDescription("✅ No-prefix role **removed**.")], ephemeral: true });
-        } else if (sub === "status") {
-          const roleId = getNoPrefixRole(guild.id);
-          await interaction.reply({ embeds: [new EmbedBuilder().setColor(C).setDescription(roleId ? `⚡ No-prefix role: <@&${roleId}>` : "No no-prefix role set.")], ephemeral: true });
+        try {
+          if (sub === "set") {
+            const role = interaction.options.getRole("role", true);
+            await setNoPrefixRoleDb(guild.id, role.id);
+            await interaction.reply({ embeds: [new EmbedBuilder().setColor(C).setDescription(`✅ No-prefix role set to <@&${role.id}>.\nMembers with this role can use commands without \`!\`.`)], ephemeral: true });
+          } else if (sub === "remove") {
+            await deleteNoPrefixRoleDb(guild.id);
+            await interaction.reply({ embeds: [new EmbedBuilder().setColor(C).setDescription("✅ No-prefix role **removed**.")], ephemeral: true });
+          } else if (sub === "status") {
+            const roleId = getNoPrefixRole(guild.id);
+            await interaction.reply({ embeds: [new EmbedBuilder().setColor(C).setDescription(roleId ? `⚡ No-prefix role: <@&${roleId}>` : "No no-prefix role set.")], ephemeral: true });
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({ content: `❌ Error: ${msg}`, ephemeral: true });
+          }
         }
         break;
       }

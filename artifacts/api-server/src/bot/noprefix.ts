@@ -53,14 +53,13 @@ export async function handleNoPrefix(message: Message): Promise<void> {
 
   if (sub === "set") {
     const role = message.mentions.roles.first();
+    if (!role) {
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xff0000).setDescription("❌ Usage: `!noprefix set @role`")] });
+      return;
+    }
     try {
-      if (role) {
-        await setNoPrefixRoleDb(message.guild.id, role.id);
-        await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix enabled for <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
-      } else {
-        await setNoPrefixRoleDb(message.guild.id, "everyone");
-        await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix enabled for **everyone** in this server.\nAnyone can now use commands **without** the \`!\` prefix.`)] });
-      }
+      await setNoPrefixRoleDb(message.guild.id, role.id);
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix role set to <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
     } catch (err) {
       await message.reply({ embeds: [new EmbedBuilder().setColor(0xff0000).setDescription(`❌ Failed to save: ${err instanceof Error ? err.message : String(err)}`)] });
     }
@@ -72,11 +71,9 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   await message.reply({
     embeds: [
       new EmbedBuilder().setColor(0x5865f2).setTitle("⚡ No Prefix")
-        .setDescription(current === "everyone"
-          ? `**Status:** Enabled for everyone ✅\n\nUsage:\n\`!noprefix set\` — enable for everyone\n\`!noprefix set @role\` — enable for a role only\n\`!noprefix remove\` — disable`
-          : current
-          ? `**Current no-prefix role:** <@&${current}>\n\nUsage:\n\`!noprefix set\` — enable for everyone\n\`!noprefix set @role\` — enable for a role only\n\`!noprefix remove\` — disable`
-          : `**Status:** Disabled ❌\n\nUsage:\n\`!noprefix set\` — enable for everyone\n\`!noprefix set @role\` — enable for a role only\n\`!noprefix remove\` — disable`),
+        .setDescription(current
+          ? `**Current no-prefix role:** <@&${current}>\n\nUsage:\n\`!noprefix set @role\` — set\n\`!noprefix remove\` — remove`
+          : `No no-prefix role set.\n\nUsage:\n\`!noprefix set @role\` — set\n\`!noprefix remove\` — remove`),
     ],
   });
 }
