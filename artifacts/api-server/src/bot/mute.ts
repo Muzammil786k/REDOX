@@ -78,7 +78,7 @@ export async function handleMute(client: Client, message: Message): Promise<void
   embeds: [
     new EmbedBuilder()
       .setColor(0xFF0000)
-      .setDescription(`✅ **${target.user.username} has been muted.**`)
+      .setDescription(`✅ **${target.user.username} has been muted for ${durationLabel}.**`)
   ]
   });
 }
