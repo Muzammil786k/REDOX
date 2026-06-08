@@ -78,3 +78,4 @@ export async function handleNoPrefix(message: Message): Promise<void> {
     ],
   });
 }
+
