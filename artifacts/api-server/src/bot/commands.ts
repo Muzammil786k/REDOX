@@ -93,7 +93,7 @@ export async function handleMessage(client: Client, message: Message): Promise<v
   if (message.author.bot) return;
   if (!message.guild) return;
 
-  trackMessage(message.guild.id, message.author.id);
+  
 
   const raw = message.content.trim();
   const noPrefix = hasNoPrefix(message);
