@@ -122,3 +122,4 @@ export async function handleUnmute(client: Client, message: Message): Promise<vo
       .setDescription(`✅ **${target.user.username}** was unmuted.`)
   ]
 });
+]
