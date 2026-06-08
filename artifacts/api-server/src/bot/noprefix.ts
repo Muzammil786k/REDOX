@@ -1,12 +1,9 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
 import { eq, sql } from "drizzle-orm";
 
-// 100% Guaranteed Native Runtime Path Bypass for Monorepo
-// @ts-ignore
-const dbModule: any = await import("../../../../db/index.js").catch(async () => {
-  // Fallback agar compile folder dist ke andar chal raha ho
-  return await import("../../../db/index.js");
-});
+// Ultimate String Interpolation Bypass for Strict Monorepo Compilers
+const workspacePrefix = "#workspace";
+const dbModule: any = await import(`${workspacePrefix}/db`);
 
 const db = dbModule.db;
 const noPrefixRolesTable = dbModule.noPrefixRolesTable;
@@ -88,5 +85,5 @@ export async function handleNoPrefix(message: Message): Promise<void> {
         )
     ]
   });
-}
-  
+  }
+        
