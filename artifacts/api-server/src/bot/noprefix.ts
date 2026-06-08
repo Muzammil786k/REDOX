@@ -53,14 +53,16 @@ export async function handleNoPrefix(message: Message): Promise<void> {
 
   if (sub === "set") {
     const role = message.mentions.roles.first();
-    if (role) {
-      // !noprefix set @role — only that role gets noprefix
-      await setNoPrefixRoleDb(message.guild.id, role.id);
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix enabled for <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
-    } else {
-      // !noprefix set — enable for everyone
-      await setNoPrefixRoleDb(message.guild.id, "everyone");
-      await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix enabled for **everyone** in this server.\nAnyone can now use commands **without** the \`!\` prefix.`)] });
+    try {
+      if (role) {
+        await setNoPrefixRoleDb(message.guild.id, role.id);
+        await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix enabled for <@&${role.id}>.\nMembers with this role can use commands **without** the \`!\` prefix.`)] });
+      } else {
+        await setNoPrefixRoleDb(message.guild.id, "everyone");
+        await message.reply({ embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`✅ No-prefix enabled for **everyone** in this server.\nAnyone can now use commands **without** the \`!\` prefix.`)] });
+      }
+    } catch (err) {
+      await message.reply({ embeds: [new EmbedBuilder().setColor(0xff0000).setDescription(`❌ Failed to save: ${err instanceof Error ? err.message : String(err)}`)] });
     }
     return;
   }
