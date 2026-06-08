@@ -1,9 +1,8 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
-import { pgTable, bigint, varchar } from "drizzle-orm/pg-core";
 import pkg from "pg";
 const { Pool } = pkg;
 
-// Standard Connection Pool using Railway's default Environment Variable
+// Railway Database URL Connectivity
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
