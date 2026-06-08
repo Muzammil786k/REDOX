@@ -1,6 +1,6 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
-import { db } from "#workspace/db";
-import { noPrefixRolesTable } from "#workspace/db";
+import { db } from "../../../../lib/db";
+import { noPrefixRolesTable } from "../../../../lib/db";
 import { eq, sql } from "drizzle-orm";
 
 const noPrefixRoles = new Map<string, string>();
@@ -47,7 +47,7 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   }
 
   const args = message.content.trim().split(/\s+/).slice(1);
-  const sub = args[0]?.toLowerCase();
+  const sub = args?.toLowerCase();
 
   if (sub === "remove") {
     await deleteNoPrefixRoleDb(message.guild.id);
