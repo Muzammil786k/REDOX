@@ -1,7 +1,12 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
-import { db } from "../../../../lib/db";
-import { noPrefixRolesTable } from "../../../../lib/db";
 import { eq, sql } from "drizzle-orm";
+
+// Dynamic Import Bypass for Railway compiler
+const dbPath = "#workspace/db";
+// @ts-ignore
+const dbModule: any = await import(dbPath);
+const db = dbModule.db;
+const noPrefixRolesTable = dbModule.noPrefixRolesTable;
 
 const noPrefixRoles = new Map<string, string>();
 
