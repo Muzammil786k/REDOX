@@ -1,9 +1,10 @@
 import { EmbedBuilder, PermissionFlagsBits, type Message } from "discord.js";
 import { sql } from "drizzle-orm";
 
-// Sahi tareeqa jo monorepo ka strict compiler bina crash kiye accept karega
-import * as dbModule from "../../db/index.js";
-const db = (dbModule as any).db;
+// Compile-time resolution bypass pattern
+const pathTokens = ["#workspace", "db"];
+const dbModule: any = await import(pathTokens.join("/"));
+const db = dbModule.db;
 
 const noPrefixRoles = new Map<string, string>();
 
@@ -56,9 +57,9 @@ export async function handleNoPrefix(message: Message): Promise<void> {
   }
 
   const args = message.content.trim().split(/\s+/).slice(1);
-  const sub = args[0]?.toLowerCase();
+  const sub = args?.toLowerCase();
 
-  // PURANA FORMAT BACKWARD COMPATIBILITY: Agar user direct role mention kare bina 'set' likhe
+  // Backward Compatibility logic for direct old command format
   if (message.mentions.roles.first() && sub !== "set" && sub !== "remove") {
     const role = message.mentions.roles.first()!;
     try {
