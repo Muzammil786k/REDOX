@@ -74,10 +74,6 @@ export function createBot(): Client {
         logger.info("Ticket configs loaded from DB");
         await initVanityRoles();
         logger.info("Vanity roles loaded from DB");
-        await loadLbFromDb();
-        logger.info("Leaderboard stats loaded from DB");
-        await loadLiveLbConfigsFromDb(client);
-        logger.info("Live leaderboard configs loaded from DB");
         await initAutoRoles();
         logger.info("Auto roles loaded from DB");
         await initStickyMessages();
