@@ -21,7 +21,6 @@ import { handleReactionRoleAdd, handleReactionRoleRemove, initReactionRoles } fr
 import { handleWelcomeMember } from "./welcome";
 import { handleLeaveMember } from "./leave";
 import { storeSnipe } from "./snipe";
-import { handleVoiceStateUpdate, loadLbFromDb, loadLiveLbConfigsFromDb } from "./leaderboard";
 import { handleTicketInteraction, handleTicketModalSubmit, initTicketConfigs } from "./ticket";
 import { handlePresenceUpdate, initVanityRoles } from "./vanityrole";
 import { initNoPrefixRoles } from "./noprefix";
@@ -114,10 +113,7 @@ export function createBot(): Client {
     } catch (err) { logger.error({ err }, "Error on guildMemberRemove (leave)"); }
   });
 
-  client.on("voiceStateUpdate", (oldState: VoiceState, newState: VoiceState) => {
-    try { handleVoiceStateUpdate(oldState, newState); }
-    catch (err) { logger.error({ err }, "Error on voiceStateUpdate"); }
-  });
+
 
   client.on("interactionCreate", async (interaction: Interaction) => {
     try {
