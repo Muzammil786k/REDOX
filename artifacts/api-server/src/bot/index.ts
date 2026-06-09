@@ -21,7 +21,7 @@ import { handleReactionRoleAdd, handleReactionRoleRemove, initReactionRoles } fr
 import { handleWelcomeMember } from "./welcome";
 import { handleLeaveMember } from "./leave";
 import { storeSnipe } from "./snipe";
-import { handleVoiceStateUpdate, initLiveLb, loadLbFromDb, loadLiveLbConfigsFromDb } from "./leaderboard";
+import { handleVoiceStateUpdate, loadLbFromDb, loadLiveLbConfigsFromDb } from "./leaderboard";
 import { handleTicketInteraction, handleTicketModalSubmit, initTicketConfigs } from "./ticket";
 import { handlePresenceUpdate, initVanityRoles } from "./vanityrole";
 import { initNoPrefixRoles } from "./noprefix";
@@ -60,7 +60,6 @@ export function createBot(): Client {
     logger.info({ tag: client.user?.tag }, "Discord bot is ready");
     client.user?.setActivity("🎉 Giveaways | !help");
     void registerSlashCommands(client);
-    initLiveLb(client);
     void (async () => {
       try {
         await loadPrefixes();
