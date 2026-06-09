@@ -31,7 +31,6 @@ import { getVanityConfigFromCache, setVanityRoleDb, deleteVanityRoleDb, statusHa
 import { getGuildTriggersFromCache, addTriggerEntry, removeTriggerEntry, clearTriggerEntries } from "./autotrigger";
 import { getAllRR, addRREntry, removeRREntry, clearRREntries, normalizeEmoji } from "./reactionroles";
 import { getTicketConfig, saveTicketConfigToDb, isOpenTicket, getTicketOpener, removeOpenTicket } from "./ticket";
-import { setLiveLbConfig, disableLiveLbConfig, resetLbStatsForPeriod } from "./leaderboard";
 import { startGiveaway, endGiveaway, rerollGiveaway, parseDuration } from "./giveaway";
 import { stopWordbombGame, startWordbombInChannel, getWbWinsFromDb } from "./wordbomb";
 import { safeCalc } from "./calc";
